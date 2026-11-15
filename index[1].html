@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Тихий сад — судоку</title>
+<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+<style>
+:root{--bg:#1f2547;--ink:#1f2547;--paper:#e4ead9;--paper2:#d3ddc6;--me:#2f6f8f;--gold:#f0b429;--bad:#b8324a;--soft:#aab4d6}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:#eef0fa;font:16px system-ui,sans-serif;touch-action:manipulation;user-select:none}
+main{max-width:500px;margin:0 auto;padding:10px 10px 16px;display:flex;flex-direction:column;gap:10px;min-height:100%}
+header{display:flex;justify-content:space-between;align-items:baseline}
+h1{font:600 26px/1 Palatino,"Iowan Old Style",Georgia,serif;letter-spacing:.01em}
+.meta{display:flex;gap:14px;font-variant-numeric:tabular-nums;color:var(--soft)}
+#lv{color:var(--gold);letter-spacing:2px}
+.bar{display:flex;gap:8px;align-items:center}
+.bar span{margin-left:auto;color:var(--soft);font-size:14px}
+select,button{font:inherit;color:inherit}
+select,.bar button{background:#2d3566;border:1px solid #4a5497;border-radius:8px;padding:8px 12px}
+#bd{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(9,minmax(0,1fr));width:min(100%,60vh);aspect-ratio:1;margin:0 auto;background:var(--ink);border:3px solid var(--ink);border-radius:6px;overflow:hidden}
+.c{position:relative;background:var(--paper);border:0;border-right:1px solid #b9c4aa;border-bottom:1px solid #b9c4aa;color:var(--me);font:600 clamp(18px,6vw,30px)/1 Palatino,Georgia,serif;display:flex;align-items:center;justify-content:center;padding:0;min-width:0;min-height:0;overflow:hidden;cursor:pointer}
+.c.t{background:var(--paper2)}
+.c.br{border-right:3px solid var(--ink)}.c.bb{border-bottom:3px solid var(--ink)}
+.c.gv{color:var(--ink);font-weight:800}
+.c.pe{background:#f3e7b8}
+.c.sm{background:#f6cf6a}
+.c.sel{background:var(--gold);outline:3px solid var(--ink);outline-offset:-3px;z-index:1}
+.c.er{color:var(--bad);background:#f2c9cf}
+.n{display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%;padding:1px}
+.n span{font:600 clamp(7px,2.3vw,11px)/1 system-ui;color:#4a5a46;display:flex;align-items:center;justify-content:center}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tools button{background:none;border:1px solid #4a5497;border-radius:8px;padding:9px 0;color:var(--soft);font-size:14px;position:relative}
+.tools button.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.tools b{position:absolute;top:-7px;right:-5px;background:var(--gold);color:var(--ink);border-radius:9px;min-width:18px;padding:1px 5px;font-size:12px}
+#pad{display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
+#pad button{background:var(--paper);color:var(--ink);border:0;border-radius:8px;padding:8px 0 4px;font:700 clamp(20px,7vw,30px)/1 Palatino,Georgia,serif;display:flex;flex-direction:column;align-items:center;gap:3px}
+#pad small{font:12px system-ui;color:#5b6b55}
+#pad button:disabled{opacity:.25}
+button:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#ov{position:fixed;inset:0;background:#1f2547d9;display:flex;align-items:center;justify-content:center;padding:20px}
+#ov[hidden]{display:none}
+.card{background:var(--paper);color:var(--ink);border-radius:14px;padding:24px;max-width:340px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.card h2{font:700 28px Palatino,Georgia,serif}
+.card button{border:0;border-radius:8px;padding:12px;background:var(--ink);color:#fff;font-weight:600}
+.card button.alt{background:var(--gold);color:var(--ink)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--gold);color:var(--ink);padding:10px 16px;border-radius:20px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.on{opacity:1}
+@media(max-height:700px){#bd{width:min(100%,52vh)}}
+@media(prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Тихий сад</h1><div class="meta"><span id="tm">00:00</span><span id="lv"></span></div></header>
+<div class="bar">
+<select id="df" aria-label="Сложность"><option value="42">Легко</option><option value="34" selected>Средне</option><option value="28">Сложно</option></select>
+<button id="nw">Новая игра</button><span id="st"></span>
+</div>
+<div id="bd" role="grid" aria-label="Поле судоку"></div>
+<div class="tools">
+<button id="un">Отмена</button><button id="er">Стереть</button><button id="nt">Заметки</button><button id="hn">Подсказка<b id="hb">1</b></button>
+</div>
+<div id="pad"></div>
+</main>
+<div id="ov" hidden><div class="card"><h2 id="ot"></h2><p id="op"></p><div id="oa" style="display:flex;flex-direction:column;gap:8px"></div></div></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);
+/* ---- Языки: ru / en (язык берём из Yandex Games SDK) ---- */
+let lang='ru';
+const D={ru:{ti:'Тихий сад — судоку',h1:'Тихий сад',nw:'Новая игра',un:'Отмена',er:'Стереть',nt:'Заметки',hn:'Подсказка',lv0:'Легко',lv1:'Средне',lv2:'Сложно',st:'Серия ',gift:'Серия из 5 — подсказка в подарок',got:'Подсказка получена',l3:'Три ошибки',l3t:'Можно продолжить с одной жизнью после рекламы или начать заново.',cont:'Продолжить (реклама)',done:'Сад в порядке',time:'Время ',errs:', ошибок: '},
+en:{ti:'Quiet Garden — Sudoku',h1:'Quiet Garden',nw:'New game',un:'Undo',er:'Erase',nt:'Notes',hn:'Hint',lv0:'Easy',lv1:'Medium',lv2:'Hard',st:'Streak ',gift:'5 in a row — free hint!',got:'Hint received',l3:'Three mistakes',l3t:'Continue with one life after an ad, or start a new game.',cont:'Continue (ad)',done:'Garden in order',time:'Time ',errs:', mistakes: '}};
+const T=k=>D[lang][k];
+function applyLang(){
+  document.documentElement.lang=lang;document.title=T('ti');$('h1').textContent=T('h1');
+  ['nw','un','er','nt'].forEach(k=>$('#'+k).textContent=T(k));
+  $('#hn').firstChild.textContent=T('hn');
+  [...$('#df').options].forEach((o,i)=>o.text=T('lv'+i));
+}
+/* ---- Реклама: VK Bridge (VK Mini Apps). Вне VK — заглушки для локальной проверки ---- */
+const VK=window.vkBridge;
+const Ads={
+  show(fmt,ok,fail){
+    if(!VK)return fail();
+    VK.send('VKWebAppCheckNativeAds',{ad_format:fmt})
+      .then(d=>d&&d.result?VK.send('VKWebAppShowNativeAds',{ad_format:fmt}).then(r=>r&&r.result?ok():fail()):fail())
+      .catch(()=>fail());
+  },
+  inter(done){if(!VK)return done();Ads.show('interstitial',done,done)},
+  reward(ok){if(!VK)return ok();Ads.show('reward',ok,()=>{})}
+};
+if(VK){
+  VK.send('VKWebAppInit').catch(()=>{});
+  VK.send('VKWebAppGetLaunchParams').then(p=>{
+    lang=['ru','uk','be','kk','uz'].includes(String(p.vk_language))?'ru':'en';
+    applyLang();draw();
+  }).catch(()=>{});
+}
+
+/* ---- Решатель и генератор ---- */
+const bx=i=>(i/27|0)*3+((i%9)/3|0);
+function solve(g,limit,rnd){
+  const R=Array(9).fill(0),C=Array(9).fill(0),B=Array(9).fill(0);
+  g.forEach((v,i)=>{if(v){const b=1<<v-1;R[i/9|0]|=b;C[i%9]|=b;B[bx(i)]|=b}});
+  let n=0,out=null;
+  (function rec(){
+    let bi=-1,bm=0,bc=10;
+    for(let i=0;i<81;i++)if(!g[i]){const m=~(R[i/9|0]|C[i%9]|B[bx(i)])&511;let c=0;for(let x=m;x;x&=x-1)c++;if(c<bc){bc=c;bi=i;bm=m;if(c<2)break}}
+    if(bi<0){n++;if(!out)out=g.slice();return}
+    const ds=[];for(let d=0;d<9;d++)if(bm>>d&1)ds.push(d);
+    if(rnd)ds.sort(()=>Math.random()-.5);
+    const r=bi/9|0,c=bi%9,k=bx(bi);
+    for(const d of ds){const b=1<<d;g[bi]=d+1;R[r]|=b;C[c]|=b;B[k]|=b;rec();g[bi]=0;R[r]^=b;C[c]^=b;B[k]^=b;if(n>=limit)return}
+  })();
+  return{n,out};
+}
+function make(clues){
+  const s=solve(Array(81).fill(0),1,true).out,p=s.slice();
+  const idx=[...Array(81).keys()].sort(()=>Math.random()-.5);
+  let left=81;
+  for(const i of idx){if(left<=clues)break;const v=p[i];p[i]=0;if(solve(p.slice(),2).n>1)p[i]=v;else left--}
+  return{s,p};
+}
+
+/* ---- Состояние ---- */
+let sol,cur,given,notes,hist,sel,lives,streak,miss,hints,t,over,noteMode=false;
+const PE=[...Array(81).keys()].map(i=>{const r=i/9|0,c=i%9,o=[];for(let j=0;j<81;j++){const a=j/9|0,b=j%9;if(j!==i&&(a===r||b===c||bx(j)===bx(i)))o.push(j)}return o});
+
+/* ---- Интерфейс ---- */
+const bd=$('#bd'),pad=$('#pad'),cells=[],keys=[];
+for(let i=0;i<81;i++){
+  const b=document.createElement('button');
+  b.className='c'+(bx(i)%2?' t':'')+(i%9%3==2&&i%9<8?' br':'')+((i/9|0)%3==2&&i<72?' bb':'');
+  b.onclick=()=>{sel=i;draw()};bd.append(b);cells.push(b);
+}
+for(let d=1;d<=9;d++){const b=document.createElement('button');b.onclick=()=>put(d);pad.append(b);keys.push(b)}
+
+function draw(){
+  const sv=sel>=0?cur[sel]:0;
+  cells.forEach((b,i)=>{
+    const v=cur[i];
+    b.classList.toggle('sel',i===sel);
+    b.classList.toggle('pe',sel>=0&&PE[sel].includes(i));
+    b.classList.toggle('sm',!!sv&&v===sv&&i!==sel);
+    b.classList.toggle('er',!!v&&v!==sol[i]);
+    b.classList.toggle('gv',given[i]);
+    b.innerHTML=v?v:notes[i]?'<div class="n">'+[1,2,3,4,5,6,7,8,9].map(d=>'<span>'+(notes[i]>>d-1&1?d:'')+'</span>').join('')+'</div>':'';
+  });
+  keys.forEach((b,k)=>{
+    const d=k+1,left=9-cur.filter((v,i)=>v===d&&sol[i]===d).length;
+    b.innerHTML=d+'<small>'+left+'</small>';b.disabled=left<=0;
+  });
+  $('#lv').textContent='♥'.repeat(lives)+'♡'.repeat(3-lives);
+  $('#st').textContent=T('st')+streak%5+'/5';
+  $('#hb').textContent=hints>0?hints:'▶';
+  $('#nt').classList.toggle('on',noteMode);
+}
+function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),1800)}
+function snap(){hist.push([cur.slice(),notes.slice()]);if(hist.length>60)hist.shift()}
+function clearNotes(i,d){PE[i].forEach(j=>notes[j]&=~(1<<d-1))}
+function overlay(title,text,btns){
+  $('#ot').textContent=title;$('#op').textContent=text;const a=$('#oa');a.innerHTML='';
+  btns.forEach(([label,fn,alt])=>{const b=document.createElement('button');b.textContent=label;if(alt)b.className='alt';b.onclick=fn;a.append(b)});
+  $('#ov').hidden=false;
+}
+
+/* ---- Игровая логика ---- */
+function put(d){
+  if(over||sel<0||given[sel]||cur[sel]===sol[sel])return;
+  if(noteMode){if(cur[sel])return;snap();notes[sel]^=1<<d-1;draw();return}
+  snap();cur[sel]=d;notes[sel]=0;
+  if(d===sol[sel]){
+    clearNotes(sel,d);streak++;
+    if(streak%5==0){hints++;toast(T('gift'))}
+  }else{
+    streak=0;miss++;lives--;
+    if(lives<=0){draw();return lose()}
+  }
+  draw();
+  if(cur.every((v,i)=>v===sol[i]))win();
+}
+function erase(){
+  if(over||sel<0||given[sel]||cur[sel]===sol[sel])return;
+  snap();cur[sel]=0;notes[sel]=0;draw();
+}
+function undo(){if(over||!hist.length)return;[cur,notes]=hist.pop();draw()}
+function hint(){
+  if(over)return;
+  if(hints<=0)return Ads.reward(()=>{hints++;draw();toast(T('got'))});
+  const i=sel>=0&&cur[sel]!==sol[sel]?sel:cur.findIndex((v,k)=>v!==sol[k]);
+  if(i<0)return;
+  snap();cur[i]=sol[i];notes[i]=0;clearNotes(i,sol[i]);sel=i;hints--;draw();
+  if(cur.every((v,k)=>v===sol[k]))win();
+}
+function lose(){
+  over=true;
+  overlay(T('l3'),T('l3t'),[
+    [T('cont'),()=>Ads.reward(()=>{lives=1;over=false;$('#ov').hidden=true;draw()}),true],
+    [T('nw'),()=>Ads.inter(newGame)]
+  ]);
+}
+function win(){
+  over=true;
+  const m=String(t/60|0).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+  overlay(T('done'),T('time')+m+T('errs')+miss+'.',[[T('nw'),()=>Ads.inter(newGame),true]]);
+}
+function newGame(){
+  const g=make(+$('#df').value);
+  sol=g.s;cur=g.p.slice();given=g.p.map(v=>v>0);notes=Array(81).fill(0);
+  hist=[];sel=-1;lives=3;streak=0;miss=0;hints=1;t=0;over=false;
+  $('#ov').hidden=true;$('#tm').textContent='00:00';draw();
+}
+
+/* ---- События ---- */
+$('#nw').onclick=()=>Ads.inter(newGame);
+$('#un').onclick=undo;$('#er').onclick=erase;$('#hn').onclick=hint;
+$('#nt').onclick=()=>{noteMode=!noteMode;draw()};
+setInterval(()=>{if(!over&&!document.hidden){t++;$('#tm').textContent=String(t/60|0).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}},1000);
+document.addEventListener('keydown',e=>{
+  if(/^[1-9]$/.test(e.key))put(+e.key);
+  else if(/^(Backspace|Delete|0)$/.test(e.key))erase();
+  else if(e.key==='n')(noteMode=!noteMode,draw());
+  else if(e.key==='z')undo();
+  else if(e.key.startsWith('Arrow')){
+    e.preventDefault();const s=sel<0?40:sel,r=s/9|0,c=s%9;
+    sel=e.key==='ArrowUp'?Math.max(0,r-1)*9+c:e.key==='ArrowDown'?Math.min(8,r+1)*9+c:e.key==='ArrowLeft'?r*9+Math.max(0,c-1):r*9+Math.min(8,c+1);
+    draw();
+  }
+});
+applyLang();newGame();
+</script>
+</body>
+</html>
